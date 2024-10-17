@@ -16,11 +16,12 @@ class WebCrawlerEngine:
         self.crawler = WebCrawler()
         self.crawler.warmup()
 
-    async def crawl_url(self, url):
+    async def crawl_url(self, url,respect_robot_flag):
         try:
-            delay = get_crawl_delay(url)
-            await asyncio.sleep(delay)
-
+            if respect_robot_flag==True:
+                delay = get_crawl_delay(url)
+                await asyncio.sleep(delay)
+            
             result = self.crawler.run(url=url)
             print(f"Crawled URL: {url}")
 
@@ -47,15 +48,15 @@ class WebCrawlerEngine:
         except Exception as e:
             print(f"Error crawling {url}: {e}")
 
-    async def run_crawler(self, seed_url, max_urls):
+    async def run_crawler(self, seed_url, max_urls,respect_robot_flag):
         self.url_queue.append(seed_url)
 
         while self.url_queue and len(self.visited_urls) < max_urls:
             current_url = self.url_queue.popleft()
             if current_url not in self.visited_urls:
-                await self.crawl_url(current_url)
+                await self.crawl_url(current_url,respect_robot_flag)
 
         save_to_mongodb(self.data_storage)
 
-        return self.data_storage
+        return self.data_storage, self.external_urls
 
