@@ -15,13 +15,20 @@ class WebCrawlerEngine:
         self.external_urls = set()
         self.crawler = WebCrawler()
         self.crawler.warmup()
+        self.message = ""
+        self.unscrapable_urls = []  # Track URLs not allowed by robots.txt
 
-    async def crawl_url(self, url,respect_robot_flag):
+    async def crawl_url(self, url, respect_robot_flag):
         try:
-            if respect_robot_flag==True:
-                delay = get_crawl_delay(url)
-                await asyncio.sleep(delay)
-            
+            if respect_robot_flag:
+                try:
+                    delay = get_crawl_delay(url)
+                    await asyncio.sleep(delay)
+                except Exception as e:
+                    self.unscrapable_urls.append(url)
+                    print(f"Skipping URL due to robots.txt restriction: {url}")
+                    return  # Skip this URL
+
             result = self.crawler.run(url=url)
             print(f"Crawled URL: {url}")
 
@@ -48,15 +55,32 @@ class WebCrawlerEngine:
         except Exception as e:
             print(f"Error crawling {url}: {e}")
 
-    async def run_crawler(self, seed_url, max_urls,respect_robot_flag):
+    async def run_crawler(self, seed_url, max_urls, respect_robot_flag):
+        # Clear data_storage, external_urls, and unscrapable_urls for each crawl request
+        self.data_storage = {}
+        self.external_urls = set()
+        self.url_queue.clear()
+        self.visited_urls.clear()
+        self.unscrapable_urls = []
+        self.message = ""
+        
+        # Add the seed URL to the queue
         self.url_queue.append(seed_url)
 
         while self.url_queue and len(self.visited_urls) < max_urls:
             current_url = self.url_queue.popleft()
             if current_url not in self.visited_urls:
-                await self.crawl_url(current_url,respect_robot_flag)
+                await self.crawl_url(current_url, respect_robot_flag)
 
-        save_to_mongodb(self.data_storage)
+        # Set the message based on crawling outcomes
+        if not self.visited_urls:
+            self.message = "Crawling unsuccessful as it is not permitted by robots.txt"
+        elif self.unscrapable_urls:
+            self.message = ", ".join(
+                f"{url} could not be scraped as instructed by robots.txt" 
+                for url in self.unscrapable_urls
+            )
+        else:
+            self.message = "Crawling successful"
 
-        return self.data_storage, self.external_urls
-
+        return self.data_storage, self.external_urls, self.message
