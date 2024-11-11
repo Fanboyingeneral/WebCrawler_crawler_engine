@@ -1,4 +1,4 @@
-FROM unclecode/crawl4ai:latest
+FROM fanboyingeneral/crawl4ai_copy
 
 WORKDIR /usr/src/app
 
@@ -8,3 +8,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
